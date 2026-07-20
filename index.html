@@ -23,7 +23,9 @@
   .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--indigo);font-weight:600}
   h1{font-family:'Fraunces',serif;font-weight:500;font-size:24px;letter-spacing:-.01em;text-transform:capitalize}
   .stats{text-align:right;flex:0 0 auto}
-  .stats .big{font-family:'Fraunces',serif;font-size:30px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+  .stats .big{font-family:'Fraunces',serif;font-size:30px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums;display:inline-block}
+  .stats .big.pop{animation:numpop .55s ease-out}
+  @keyframes numpop{0%{transform:scale(1)}40%{transform:scale(1.28)}100%{transform:scale(1)}}
   .stats .lbl{font-size:11px;color:var(--muted);margin-top:2px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:22px}
   .spiral{padding:14px 10px 6px;margin-bottom:14px}
@@ -57,6 +59,16 @@
   .verse{margin-top:26px;text-align:center;padding-top:18px;border-top:1px solid var(--line)}
   .verse .v{font-family:'Fraunces',serif;font-style:italic;font-weight:400;font-size:14px;color:#5A5F72;line-height:1.55;max-width:330px;margin:0 auto}
   .verse .ref{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#A6ABBD;margin-top:9px}
+  /* Confeti de celebración */
+  .confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+  .confetti i{position:absolute;left:50%;top:36%;width:9px;height:9px;border-radius:2px;opacity:0;
+    animation:confpop 1.25s cubic-bezier(.22,.61,.36,1) forwards;animation-delay:var(--d)}
+  @keyframes confpop{
+    0%{opacity:1;transform:translate(-50%,-50%) rotate(0) scale(1)}
+    70%{opacity:1}
+    100%{opacity:0;transform:translate(calc(-50% + var(--tx)),calc(-50% + var(--ty) + 130px)) rotate(var(--rot)) scale(.9)}
+  }
+  @media (prefers-reduced-motion:reduce){.confetti{display:none}.stats .big.pop{animation:none}}
 </style>
 </head>
 <body>
@@ -97,7 +109,9 @@ const store={
   async get(k){ if(hasStore){try{const r=await window.storage.get(k,false);if(r&&r.value)return r.value;}catch(e){}} try{return localStorage.getItem(k);}catch(e){return null;} },
   async set(k,v){ if(hasStore){try{await window.storage.set(k,v,false);}catch(e){}} try{localStorage.setItem(k,v);}catch(e){} }
 };
+// ---- Fechas: SIEMPRE en hora local (nunca parsear 'YYYY-MM-DD' con new Date) ----
 function ymd(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),a=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${a}`;}
+function parseKey(k){const p=k.split('-');return new Date(+p[0],(+p[1])-1,+p[2]);} // fuerza hora local
 function addDays(d,n){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()+n);return x;}
 function today0(){const d=new Date();d.setHours(0,0,0,0);return d;}
 function weekStart(d){const x=new Date(d);x.setHours(0,0,0,0);const off=(x.getDay()+6)%7;x.setDate(x.getDate()-off);return x;}
@@ -107,11 +121,37 @@ function fracOf(d){const rec=log[ymd(d)]||{};const req=requiredFor(d);if(!req.le
 function isComplete(d){return fracOf(d)>=1;}
 function isFuture(d){return d>today0();}
 function currentStreak(){let d=today0();if(!isComplete(d))d=addDays(d,-1);let n=0;while(isComplete(d)){n++;d=addDays(d,-1);}return n;}
-function bestStreak(){const ks=Object.keys(log);if(!ks.length)return currentStreak();ks.sort();let d=new Date(ks[0]);d.setHours(0,0,0,0);const t=today0();let run=0,best=0;while(d<=t){if(isComplete(d)){run++;best=Math.max(best,run);}else run=0;d=addDays(d,1);}return Math.max(best,currentStreak());}
+function bestStreak(){const ks=Object.keys(log);if(!ks.length)return currentStreak();ks.sort();let d=parseKey(ks[0]);const t=today0();let run=0,best=0;while(d<=t){if(isComplete(d)){run++;best=Math.max(best,run);}else run=0;d=addDays(d,1);}return Math.max(best,currentStreak());}
 function monthDays(){const n=new Date(),y=n.getFullYear(),m=n.getMonth();const last=new Date(y,m+1,0).getDate();const a=[];for(let i=1;i<=last;i++)a.push(new Date(y,m,i));return a;}
 async function save(){await store.set(KEY,JSON.stringify(log));}
 async function load(){try{const raw=await store.get(KEY);if(raw)log=JSON.parse(raw);}catch(e){log={};}}
-function toggle(id){const d=new Date(selKey);d.setHours(0,0,0,0);if(isFuture(d))return;const rec=log[selKey]||{};rec[id]=!rec[id];log[selKey]=rec;save();render();}
+// ---- Celebración al completar el día ----
+function celebrate(){
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const colors=['#10B981','#4F46E5','#F59E0B','#F97316','#34D399'];
+  const box=document.createElement('div');box.className='confetti';
+  for(let i=0;i<36;i++){
+    const p=document.createElement('i');
+    const ang=Math.random()*Math.PI*2, dist=50+Math.random()*170;
+    p.style.setProperty('--tx',(Math.cos(ang)*dist).toFixed(0)+'px');
+    p.style.setProperty('--ty',(Math.sin(ang)*dist-30).toFixed(0)+'px');
+    p.style.setProperty('--rot',(Math.random()*720-360).toFixed(0)+'deg');
+    p.style.setProperty('--d',(Math.random()*120).toFixed(0)+'ms');
+    p.style.background=colors[i%colors.length];
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+  setTimeout(()=>box.remove(),1550);
+  const s=document.getElementById('streak');s.classList.remove('pop');void s.offsetWidth;s.classList.add('pop');
+}
+function toggle(id){
+  const d=parseKey(selKey);if(isFuture(d))return;
+  const wasComplete=isComplete(d);
+  const rec=log[selKey]||{};rec[id]=!rec[id];log[selKey]=rec;
+  const nowComplete=isComplete(d);
+  save();render();
+  if(!wasComplete && nowComplete) celebrate();
+}
 function spiralPoints(N){let theta=0,r=24;const b=6.6,spacing=24,pts=[];for(let i=0;i<N;i++){pts.push([r*Math.cos(theta),r*Math.sin(theta)]);theta+=spacing/Math.max(r,1);r=24+b*theta;}return pts;}
 function render(){
   const now=new Date();
@@ -140,7 +180,7 @@ function render(){
   document.getElementById('best').textContent=bestStreak();
   const doneM=days.filter(d=>!isFuture(d)&&isComplete(d)).length,elapsed=days.filter(d=>!isFuture(d)).length;
   document.getElementById('count').textContent=`${doneM} / ${elapsed} días completos`;
-  const selD=new Date(selKey);selD.setHours(0,0,0,0);
+  const selD=parseKey(selKey);
   const selLbl=selKey===tKey?'hoy':selD.toLocaleDateString('es-MX',{weekday:'long',day:'numeric'});
   document.getElementById('sel').innerHTML=`Marcando: <b>${selLbl}</b>`;
   const list=document.getElementById('list');list.innerHTML='';
@@ -158,13 +198,12 @@ function render(){
     }
     list.appendChild(el);
   });
-  // Gym: meta semanal de 4, no cuenta para la cadena
   const gdone=!!rec.gym, gc=gymCountWeek(selD);
   const gel=document.createElement('div');gel.className='habit gym'+(gdone?' done':'');
   gel.tabIndex=0;gel.setAttribute('role','button');gel.setAttribute('aria-pressed',gdone);
-  let dots='';for(let i=0;i<4;i++)dots+=`<i class="${i<gc?'on':''}"></i>`;
+  let ds='';for(let i=0;i<4;i++)ds+=`<i class="${i<gc?'on':''}"></i>`;
   gel.innerHTML=`<div class="check"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div>`+
-    `<div><span class="h-label">Gym</span> <span class="h-detail">· ${gc} / 4 esta semana</span></div><div class="dots">${dots}</div>`;
+    `<div><span class="h-label">Gym</span> <span class="h-detail">· ${gc} / 4 esta semana</span></div><div class="dots">${ds}</div>`;
   gel.addEventListener('click',()=>toggle('gym'));
   gel.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();toggle('gym');}});
   list.appendChild(gel);
