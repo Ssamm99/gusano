@@ -13,7 +13,7 @@
   :root{
     --bg:#F5F6FB; --card:#FFFFFF; --ink:#191C2B; --muted:#6E7386; --line:#E7E9F2;
     --indigo:#4F46E5; --done:#10B981; --done-soft:#E7F7F0; --amber:#F59E0B; --miss:#EDEFF6;
-    --gym:#F97316;
+    --gym:#F97316; --abs:#8B5CF6;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);
@@ -21,7 +21,13 @@
   .wrap{max-width:520px;margin:0 auto}
   .top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
   .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--indigo);font-weight:600}
+  .mtitle{display:flex;align-items:center;gap:6px}
   h1{font-family:'Fraunces',serif;font-weight:500;font-size:24px;letter-spacing:-.01em;text-transform:capitalize}
+  .arw{background:none;border:0;padding:2px 4px;cursor:pointer;color:#B4B9C9;font-size:17px;line-height:1;
+    font-family:inherit;transition:.15s;border-radius:6px}
+  .arw:hover{color:var(--ink)}
+  .arw:disabled{opacity:.28;cursor:default}
+  .arw:focus-visible{outline:2px solid var(--indigo);outline-offset:1px}
   .stats{text-align:right;flex:0 0 auto}
   .stats .big{font-family:'Fraunces',serif;font-size:30px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums;display:inline-block}
   .stats .big.pop{animation:numpop .55s ease-out}
@@ -49,17 +55,30 @@
   .habit.done .check svg{opacity:1}
   .h-label{font-weight:500;font-size:15px}.habit.done .h-label{color:#0B7A55}
   .h-detail{font-size:12px;color:var(--muted)}.h-rest{font-size:12px;color:var(--muted);font-style:italic}
+  .habit.wk{margin-top:0}
   .habit.gym{margin-top:5px}
   .habit.gym.done{background:#FEF1E7;border-color:#F9C89B}
   .habit.gym.done .check{background:var(--gym);border-color:var(--gym)}
   .habit.gym.done .h-label{color:#C2560A}
+  .habit.abs.done{background:#F3EEFE;border-color:#D6C7FA}
+  .habit.abs.done .check{background:var(--abs);border-color:var(--abs)}
+  .habit.abs.done .h-label{color:#6D3FD1}
   .dots{display:flex;gap:6px;margin-left:auto}
   .dots i{width:8px;height:8px;border-radius:50%;background:#EDEFF6;display:inline-block}
-  .dots i.on{background:var(--gym)}
-  .verse{margin-top:26px;text-align:center;padding-top:18px;border-top:1px solid var(--line)}
+  .habit.gym .dots i.on{background:var(--gym)}
+  .habit.abs .dots i.on{background:var(--abs)}
+  .mini-row{display:flex;gap:6px;justify-content:space-between;margin-top:22px}
+  .mini{flex:1;background:none;border:0;padding:6px 2px 4px;border-radius:12px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:4px;transition:.15s;font-family:inherit}
+  .mini:hover{background:#EDEFF6}
+  .mini.active{background:#fff;box-shadow:0 0 0 1px var(--line)}
+  .mini:focus-visible{outline:2px solid var(--indigo);outline-offset:1px}
+  .mini svg{width:100%;height:auto}
+  .mini span{font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:#A6ABBD}
+  .mini.active span{color:var(--ink);font-weight:600}
+  .verse{margin-top:24px;text-align:center;padding-top:18px;border-top:1px solid var(--line)}
   .verse .v{font-family:'Fraunces',serif;font-style:italic;font-weight:400;font-size:14px;color:#5A5F72;line-height:1.55;max-width:330px;margin:0 auto}
   .verse .ref{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#A6ABBD;margin-top:9px}
-  /* Confeti de celebración */
   .confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
   .confetti i{position:absolute;left:50%;top:36%;width:9px;height:9px;border-radius:2px;opacity:0;
     animation:confpop 1.25s cubic-bezier(.22,.61,.36,1) forwards;animation-delay:var(--d)}
@@ -74,7 +93,14 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div><div class="eyebrow">Gusano de constancia</div><h1 id="month">—</h1></div>
+    <div>
+      <div class="eyebrow">Gusano de constancia</div>
+      <div class="mtitle">
+        <button class="arw" id="prev" aria-label="Mes anterior">&lsaquo;</button>
+        <h1 id="month">—</h1>
+        <button class="arw" id="next" aria-label="Mes siguiente">&rsaquo;</button>
+      </div>
+    </div>
     <div class="stats"><div class="big" id="streak">0</div><div class="lbl">de racha · récord <span id="best">0</span></div></div>
   </div>
   <div class="card spiral">
@@ -90,45 +116,55 @@
   </div>
   <div class="sel" id="sel">Marcando: <b>hoy</b></div>
   <div class="list" id="list"></div>
+  <div class="mini-row" id="mini"></div>
   <div class="verse">
     <p class="v">&ldquo;El que hace bien su trabajo, estará al servicio de reyes y no de gente insignificante.&rdquo;</p>
     <p class="ref">Proverbios 22:29</p>
   </div>
 </div>
 <script>
+// Hábitos diarios: son los que forman la cadena verde
 const HABITS=[
   {id:'biblia',   label:'Biblia',                   detail:'10 min'},
   {id:'ingles_w', label:'Inglés · writing',         detail:'30 min'},
   {id:'ingles_v', label:'Inglés · video / lectura', detail:'15 min'},
   {id:'piano',    label:'Piano',                    detail:'40 min', restSunday:true},
 ];
+// Metas semanales: NO afectan la cadena
+const WEEKLY=[
+  {id:'gym', label:'Gym', target:4, cls:'gym'},
+  {id:'abs', label:'Abs', target:3, cls:'abs'},
+];
 const KEY='routine-log';
-let log={}, selKey=null;
+let log={}, selKey=null, viewY=0, viewM=0;
 const hasStore=(typeof window!=='undefined' && window.storage && typeof window.storage.get==='function');
 const store={
   async get(k){ if(hasStore){try{const r=await window.storage.get(k,false);if(r&&r.value)return r.value;}catch(e){}} try{return localStorage.getItem(k);}catch(e){return null;} },
   async set(k,v){ if(hasStore){try{await window.storage.set(k,v,false);}catch(e){}} try{localStorage.setItem(k,v);}catch(e){} }
 };
-// ---- Fechas: SIEMPRE en hora local (nunca parsear 'YYYY-MM-DD' con new Date) ----
+// ---- Fechas: SIEMPRE hora local (nunca parsear 'YYYY-MM-DD' con new Date) ----
 function ymd(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),a=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${a}`;}
-function parseKey(k){const p=k.split('-');return new Date(+p[0],(+p[1])-1,+p[2]);} // fuerza hora local
+function parseKey(k){const p=k.split('-');return new Date(+p[0],(+p[1])-1,+p[2]);}
 function addDays(d,n){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()+n);return x;}
 function today0(){const d=new Date();d.setHours(0,0,0,0);return d;}
 function weekStart(d){const x=new Date(d);x.setHours(0,0,0,0);const off=(x.getDay()+6)%7;x.setDate(x.getDate()-off);return x;}
-function gymCountWeek(d){const s=weekStart(d);let c=0;for(let i=0;i<7;i++){if((log[ymd(addDays(s,i))]||{}).gym)c++;}return c;}
+function weekCount(d,id){const s=weekStart(d);let c=0;for(let i=0;i<7;i++){if((log[ymd(addDays(s,i))]||{})[id])c++;}return c;}
 function requiredFor(d){return HABITS.filter(h=>!(h.restSunday&&d.getDay()===0)).map(h=>h.id);}
 function fracOf(d){const rec=log[ymd(d)]||{};const req=requiredFor(d);if(!req.length)return 1;return req.filter(id=>rec[id]).length/req.length;}
 function isComplete(d){return fracOf(d)>=1;}
 function isFuture(d){return d>today0();}
 function currentStreak(){let d=today0();if(!isComplete(d))d=addDays(d,-1);let n=0;while(isComplete(d)){n++;d=addDays(d,-1);}return n;}
 function bestStreak(){const ks=Object.keys(log);if(!ks.length)return currentStreak();ks.sort();let d=parseKey(ks[0]);const t=today0();let run=0,best=0;while(d<=t){if(isComplete(d)){run++;best=Math.max(best,run);}else run=0;d=addDays(d,1);}return Math.max(best,currentStreak());}
-function monthDays(){const n=new Date(),y=n.getFullYear(),m=n.getMonth();const last=new Date(y,m+1,0).getDate();const a=[];for(let i=1;i<=last;i++)a.push(new Date(y,m,i));return a;}
+function monthDaysOf(y,m){const last=new Date(y,m+1,0).getDate();const a=[];for(let i=1;i<=last;i++)a.push(new Date(y,m,i));return a;}
 async function save(){await store.set(KEY,JSON.stringify(log));}
 async function load(){try{const raw=await store.get(KEY);if(raw)log=JSON.parse(raw);}catch(e){log={};}}
-// ---- Celebración al completar el día ----
+function spiralPoints(N){let theta=0,r=24;const b=6.6,spacing=24,pts=[];for(let i=0;i<N;i++){pts.push([r*Math.cos(theta),r*Math.sin(theta)]);theta+=spacing/Math.max(r,1);r=24+b*theta;}return pts;}
+function viewBoxOf(pts,pad){let a=1e9,b=1e9,c=-1e9,d=-1e9;pts.forEach(p=>{a=Math.min(a,p[0]);b=Math.min(b,p[1]);c=Math.max(c,p[0]);d=Math.max(d,p[1]);});
+  return `${a-pad} ${b-pad} ${(c-a)+pad*2} ${(d-b)+pad*2}`;}
+// ---- Celebración ----
 function celebrate(){
   if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const colors=['#10B981','#4F46E5','#F59E0B','#F97316','#34D399'];
+  const colors=['#10B981','#4F46E5','#F59E0B','#F97316','#8B5CF6','#34D399'];
   const box=document.createElement('div');box.className='confetti';
   for(let i=0;i<36;i++){
     const p=document.createElement('i');
@@ -146,22 +182,56 @@ function celebrate(){
 }
 function toggle(id){
   const d=parseKey(selKey);if(isFuture(d))return;
-  const wasComplete=isComplete(d);
+  const was=isComplete(d);
   const rec=log[selKey]||{};rec[id]=!rec[id];log[selKey]=rec;
-  const nowComplete=isComplete(d);
+  const now=isComplete(d);
   save();render();
-  if(!wasComplete && nowComplete) celebrate();
+  if(!was && now) celebrate();
 }
-function spiralPoints(N){let theta=0,r=24;const b=6.6,spacing=24,pts=[];for(let i=0;i<N;i++){pts.push([r*Math.cos(theta),r*Math.sin(theta)]);theta+=spacing/Math.max(r,1);r=24+b*theta;}return pts;}
+function goMonth(delta){
+  const t=today0();
+  let y=viewY,m=viewM+delta;
+  if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+  if(y>t.getFullYear()||(y===t.getFullYear()&&m>t.getMonth()))return;
+  viewY=y;viewM=m;
+  selKey = (y===t.getFullYear()&&m===t.getMonth()) ? ymd(t) : ymd(new Date(y,m,1));
+  render();
+}
+function renderMini(){
+  const box=document.getElementById('mini');box.innerHTML='';
+  const t=today0();
+  for(let k=5;k>=0;k--){
+    const y=new Date(t.getFullYear(),t.getMonth()-k,1);
+    const days=monthDaysOf(y.getFullYear(),y.getMonth());
+    const pts=spiralPoints(days.length);
+    let dots='';
+    days.forEach((d,i)=>{
+      const p=pts[i],f=fracOf(d),fut=isFuture(d);
+      let fill='#E4E6EF';
+      if(fut)fill='#F5F6FB'; else if(f>=1)fill='#10B981'; else if(f>0)fill='#FCD9A0';
+      dots+=`<circle cx="${p[0]}" cy="${p[1]}" r="6" fill="${fill}"/>`;
+    });
+    const active=(y.getFullYear()===viewY&&y.getMonth()===viewM);
+    const btn=document.createElement('button');
+    btn.className='mini'+(active?' active':'');
+    btn.innerHTML=`<svg viewBox="${viewBoxOf(pts,10)}" aria-hidden="true">${dots}</svg>`+
+      `<span>${y.toLocaleDateString('es-MX',{month:'short'}).replace('.','')}</span>`;
+    btn.addEventListener('click',()=>{
+      viewY=y.getFullYear();viewM=y.getMonth();
+      selKey=(viewY===t.getFullYear()&&viewM===t.getMonth())?ymd(t):ymd(new Date(viewY,viewM,1));
+      render();
+    });
+    box.appendChild(btn);
+  }
+}
 function render(){
-  const now=new Date();
-  document.getElementById('month').textContent=now.toLocaleDateString('es-MX',{month:'long',year:'numeric'});
-  const days=monthDays(),pts=spiralPoints(days.length);
-  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9;
-  pts.forEach(p=>{minX=Math.min(minX,p[0]);minY=Math.min(minY,p[1]);maxX=Math.max(maxX,p[0]);maxY=Math.max(maxY,p[1]);});
-  const pad=18,vbX=minX-pad,vbY=minY-pad,vbW=(maxX-minX)+pad*2,vbH=(maxY-minY)+pad*2,tKey=ymd(today0());
+  const t=today0(),tKey=ymd(t);
+  document.getElementById('month').textContent=new Date(viewY,viewM,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'});
+  document.getElementById('next').disabled=(viewY===t.getFullYear()&&viewM===t.getMonth());
+  const days=monthDaysOf(viewY,viewM),pts=spiralPoints(days.length);
   let paths='',greens='',nodes='';
-  for(let i=1;i<days.length;i++){const a=pts[i-1],c=pts[i];paths+=`<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke="#E7E9F2" stroke-width="4" stroke-linecap="round"/>`;
+  for(let i=1;i<days.length;i++){const a=pts[i-1],c=pts[i];
+    paths+=`<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke="#E7E9F2" stroke-width="4" stroke-linecap="round"/>`;
     if(isComplete(days[i-1])&&isComplete(days[i]))greens+=`<line x1="${a[0]}" y1="${a[1]}" x2="${c[0]}" y2="${c[1]}" stroke="#10B981" stroke-width="6" stroke-linecap="round"/>`;}
   days.forEach((d,i)=>{
     const p=pts[i],k=ymd(d),f=fracOf(d),fut=isFuture(d),isToday=k===tKey,isSel=k===selKey;
@@ -174,12 +244,16 @@ function render(){
     if(f>0&&f<1&&!fut)nodes+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.4" fill="#10B981"/>`;
     nodes+=`<text x="${p[0]}" y="${p[1]+3}" font-size="8" text-anchor="middle" fill="${f>=1&&!fut?'#fff':'#9AA0B4'}" font-family="Inter" style="pointer-events:none">${d.getDate()}</text></g>`;
   });
-  document.getElementById('svgbox').innerHTML=`<svg viewBox="${vbX} ${vbY} ${vbW} ${vbH}" role="img" aria-label="Espiral del mes">${paths}${greens}${nodes}</svg>`;
+  document.getElementById('svgbox').innerHTML=`<svg viewBox="${viewBoxOf(pts,18)}" role="img" aria-label="Espiral del mes">${paths}${greens}${nodes}</svg>`;
   document.querySelectorAll('.node[data-k]').forEach(n=>n.addEventListener('click',()=>{selKey=n.getAttribute('data-k');render();}));
+
   document.getElementById('streak').textContent=currentStreak();
   document.getElementById('best').textContent=bestStreak();
-  const doneM=days.filter(d=>!isFuture(d)&&isComplete(d)).length,elapsed=days.filter(d=>!isFuture(d)).length;
-  document.getElementById('count').textContent=`${doneM} / ${elapsed} días completos`;
+  const elapsed=days.filter(d=>!isFuture(d)).length;
+  const doneM=days.filter(d=>!isFuture(d)&&isComplete(d)).length;
+  const pct=elapsed?Math.round(doneM/elapsed*100):0;
+  document.getElementById('count').textContent=`${doneM} / ${elapsed} días · ${pct}%`;
+
   const selD=parseKey(selKey);
   const selLbl=selKey===tKey?'hoy':selD.toLocaleDateString('es-MX',{weekday:'long',day:'numeric'});
   document.getElementById('sel').innerHTML=`Marcando: <b>${selLbl}</b>`;
@@ -198,17 +272,22 @@ function render(){
     }
     list.appendChild(el);
   });
-  const gdone=!!rec.gym, gc=gymCountWeek(selD);
-  const gel=document.createElement('div');gel.className='habit gym'+(gdone?' done':'');
-  gel.tabIndex=0;gel.setAttribute('role','button');gel.setAttribute('aria-pressed',gdone);
-  let ds='';for(let i=0;i<4;i++)ds+=`<i class="${i<gc?'on':''}"></i>`;
-  gel.innerHTML=`<div class="check"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div>`+
-    `<div><span class="h-label">Gym</span> <span class="h-detail">· ${gc} / 4 esta semana</span></div><div class="dots">${ds}</div>`;
-  gel.addEventListener('click',()=>toggle('gym'));
-  gel.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();toggle('gym');}});
-  list.appendChild(gel);
+  WEEKLY.forEach(w=>{
+    const done=!!rec[w.id], c=weekCount(selD,w.id);
+    const el=document.createElement('div');el.className=`habit wk ${w.cls}`+(done?' done':'');
+    el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-pressed',done);
+    let ds='';for(let i=0;i<w.target;i++)ds+=`<i class="${i<c?'on':''}"></i>`;
+    el.innerHTML=`<div class="check"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div>`+
+      `<div><span class="h-label">${w.label}</span> <span class="h-detail">· ${c} / ${w.target} esta semana</span></div><div class="dots">${ds}</div>`;
+    el.addEventListener('click',()=>toggle(w.id));
+    el.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();toggle(w.id);}});
+    list.appendChild(el);
+  });
+  renderMini();
 }
-(async()=>{selKey=ymd(today0());await load();render();})();
+document.getElementById('prev').addEventListener('click',()=>goMonth(-1));
+document.getElementById('next').addEventListener('click',()=>goMonth(1));
+(async()=>{const t=today0();viewY=t.getFullYear();viewM=t.getMonth();selKey=ymd(t);await load();render();})();
 </script>
 </body>
 </html>
