@@ -126,8 +126,7 @@
 // Hábitos diarios: son los que forman la cadena verde
 const HABITS=[
   {id:'biblia',   label:'Biblia',                   detail:'10 min'},
-  {id:'ingles_w', label:'Inglés · writing',         detail:'30 min'},
-  {id:'ingles_v', label:'Inglés · video / lectura', detail:'15 min'},
+  {id:'ingles',   label:'Inglés · rutina',          detail:'1 hora'},
   {id:'piano',    label:'Piano',                    detail:'40 min', restSunday:true},
 ];
 // Metas semanales: NO afectan la cadena
@@ -157,7 +156,13 @@ function currentStreak(){let d=today0();if(!isComplete(d))d=addDays(d,-1);let n=
 function bestStreak(){const ks=Object.keys(log);if(!ks.length)return currentStreak();ks.sort();let d=parseKey(ks[0]);const t=today0();let run=0,best=0;while(d<=t){if(isComplete(d)){run++;best=Math.max(best,run);}else run=0;d=addDays(d,1);}return Math.max(best,currentStreak());}
 function monthDaysOf(y,m){const last=new Date(y,m+1,0).getDate();const a=[];for(let i=1;i<=last;i++)a.push(new Date(y,m,i));return a;}
 async function save(){await store.set(KEY,JSON.stringify(log));}
-async function load(){try{const raw=await store.get(KEY);if(raw)log=JSON.parse(raw);}catch(e){log={};}}
+async function load(){
+  try{const raw=await store.get(KEY);if(raw)log=JSON.parse(raw);}catch(e){log={};}
+  // Migración: días viejos con writing + video cuentan como la casilla única de inglés
+  let changed=false;
+  Object.keys(log).forEach(k=>{const r=log[k];if(!r.ingles && r.ingles_w && r.ingles_v){r.ingles=true;changed=true;}});
+  if(changed) save();
+}
 function spiralPoints(N){let theta=0,r=24;const b=6.6,spacing=24,pts=[];for(let i=0;i<N;i++){pts.push([r*Math.cos(theta),r*Math.sin(theta)]);theta+=spacing/Math.max(r,1);r=24+b*theta;}return pts;}
 function viewBoxOf(pts,pad){let a=1e9,b=1e9,c=-1e9,d=-1e9;pts.forEach(p=>{a=Math.min(a,p[0]);b=Math.min(b,p[1]);c=Math.max(c,p[0]);d=Math.max(d,p[1]);});
   return `${a-pad} ${b-pad} ${(c-a)+pad*2} ${(d-b)+pad*2}`;}
